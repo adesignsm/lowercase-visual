@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                background-color: #000;
+                overflow: hidden;
+                height: 100%;
+                width: 100%;
+            }
+
+            canvas {
+                position: absolute;
+                top: 0;
+                transform: scale(1);
+                z-index: 3;
+                mix-blend-mode: color-dodge;
+            }
+
+            #video-background-1 {
+                position: fixed;
+                top: 0;
+                left: 1000px;
+                width: 50%;
+                height: 50%;
+                z-index: 2;
+            }
+
+            #video-background-2 {
+                position: fixed;
+                top: 500px;
+                left: 0;
+                width: 40%;
+                height: 40%;
+                z-index: 1;
+            }
+
+            #video-background-3 {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 0;
+                object-fit: cover;
+            }
+        </style>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/addons/p5.sound.min.js"></script>
+    </head>
+
+    <body>
+        <video id="video-background-1" autoplay muted loop>
+            <source src="sometimes.mp4" type="video/mp4">
+        </video>
+
+        <video id="video-background-2" autoplay muted loop>
+            <source src="soitgoes.mp4" type="video/mp4">
+        </video>
+
+        <video id="video-background-3" autoplay muted loop>
+            <source src="numbnights.mp4" type="video/mp4">
+        </video>
+
+        <script type = "text/javascript">
+            let img, audio, canvasDistort;
+            let imgSrc = "fullJ.png";
+            let imgW, imgH;
+            let pixelIncrement = 25;
+            let angle = 1;
+            let fft;
+
+            function addPreview() {
+                let imgPreview = new Image();
+                imgPreview.src = imgSrc;
+            }
+
+            function preload() {
+                img = loadImage(imgSrc);
+                addPreview();
+            }
+
+            function setup() {
+                imgW = img.width;
+                imgH = img.height;
+                canvasDistort = createCanvas(window.innerWidth, window.innerHeight);
+
+                getAudioContext().suspend();
+            }
+
+            function mousePressed() {
+                userStartAudio();
+                audio = new p5.AudioIn();
+
+                if (audio) {
+                    audio.start();
+                    audio.amp(5);
+
+                    fft = new p5.FFT();
+                    fft.setInput(audio);
+                }
+            }
+
+            function draw() {
+                if (fft) {
+                    let spectrum = fft.analyze();
+
+                    let bass = Math.floor(fft.getEnergy("bass", [0, 200]));
+                    let treble = Math.floor(fft.getEnergy("treble", [0, 200]));
+                    let lowMid = Math.floor(fft.getEnergy("lowMid", [0, 200]));
+
+                    let distortionAmount = map(bass * 0.5, 0, 100, 0, 1);
+                    let distortionAngle = map(bass * 0.5, 0, 100, 0, bass);
+
+                    for (let cols = 0; cols < img.width; cols += pixelIncrement) {
+                        for (let rows = 0; rows < img.height; rows += pixelIncrement) {
+                            let xPos = cols,
+                                yPos = rows;
+                            let pixelColor = img.get(xPos, yPos);
+
+                            push();
+                            scale(0.6)
+                            translate(xPos + 900 + distortionAngle * 0.2, yPos + 200 + distortionAngle * 0.2);
+                            noFill();
+
+                            rotate(distortionAngle);
+                            scale(distortionAmount);
+
+                            stroke(color(pixelColor));
+                            strokeWeight(random(5));
+                            point(0, 0);
+
+                            strokeWeight(random(5));
+                            curve(xPos + bass, yPos + treble, sin(xPos) * random(60), cos(xPos) * sin(xPos) * random(90), random(10), random(80), cos(yPos) * sin(yPos) * random(140), cos(xPos) * sin(xPos) * 50);
+                            pop();
+                        }
+                    }
+                }
+
+                drawCRTOverlay()
+            }
+
+
+            function drawCRTOverlay() {
+                let numScanlines = 5;
+                let scanlineIntensity = 120;
+                let pixelGlowIntensity = 50;
+
+                for (let i = 0; i < height; i += numScanlines) {
+                    stroke(0, 0, 100, scanlineIntensity);
+                    line(0, i, width, i);
+                }
+
+                loadPixels();
+                for (let i = 0; i < pixels.length; i += 4) {
+                    pixels[i] += pixelGlowIntensity;
+                    pixels[i + 1] += pixelGlowIntensity;
+                    pixels[i + 2] += pixelGlowIntensity;
+                }
+                updatePixels();
+
+                push();
+                translate(width, height);
+                for (let x = -window.innerWidth; x < window.innerWidth; x += 2) {
+                    let y = sin(x / window.innerWidth * TWO_PI) * window.innerHeight * 0;
+                    stroke(0);
+                    line(window.innerWidth, window.innerHeight, x, y);
+                }
+                pop();
+            }
+        </script>
+    </body>
+</html>
